@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<object name="portal_javascripts">
+
+
+ <!-- Register jquery UI lib Javascript files to Plone
+
+      You might want to optimize these since with conditions like expression="not: portal/portal_membership/isAnonymousUser"/> 
+      since they add quite a lot of load to the site -->
+
+
+ <javascript 
+    id="++resource++jquery.ui/ui/packed/ui.datepicker.packed.js"
+    cacheable="True" compression="safe" cookable="True"
+    enabled="True" expression="" inline="False" />
+
+</object>
+
