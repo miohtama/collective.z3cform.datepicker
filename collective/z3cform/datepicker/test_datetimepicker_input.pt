@@ -1,0 +1,34 @@
+<tal:comment replace="nothing">
+        Example how to change rendering from <select> to <input>
+</tal:comment>
+
+<input type="hidden" id="" name="" tal:condition="view/show_jquery_picker"
+       tal:attributes="id view/id;
+                       name view/name;
+                       value view/value;" />
+
+<tal:selection-lists define="selection_lists view/get_selection_lists">
+
+        <tal:component repeat="component view/all_components">
+
+                <tal:has-component tal:condition="python:component in selection_lists">
+                        <input id="" name=""
+                                tal:define="selection_list python:selection_lists.get(component, [])"
+                                tal:attributes="id string:${view/id}-$component;
+                                                name string:${view/name}-$component;
+                                                value python:view.get_date_component(component)" />
+
+                        <span class="date-separator" tal:content="python:view.component_separators.get(component, '')" />
+                </tal:has-component>
+
+
+                <tal:comment replace="nothing">
+                        We need to render hidden inputs for missing day components so that we don't screw up Javascript
+                </tal:comment>
+
+                <tal:no-days tal:condition="python:not component in selection_lists">
+                    <input type="hidden" tal:attributes="id string:${view/id}-$component; name string:${view/name}-$component">
+                </tal:no-days>
+        </tal:component>
+</tal:selection-lists>
+
