@@ -1,28 +1,18 @@
 #-*- coding: utf-8 -*- 
+"""
 
-#############################################################################
-#                                                                           #
-#   Copyright (c) 2008 Rok Garbas <rok.garbas@gmail.com>                    #
-#                                                                           #
-# This program is free software; you can redistribute it and/or modify      #
-# it under the terms of the GNU General Public License as published by      #
-# the Free Software Foundation; either version 3 of the License, or         #
-# (at your option) any later version.                                       #
-#                                                                           #
-# This program is distributed in the hope that it will be useful,           #
-# but WITHOUT ANY WARRANTY; without even the implied warranty of            #
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the             #
-# GNU General Public License for more details.                              #
-#                                                                           #
-# You should have received a copy of the GNU General Public License         #
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.     #
-#                                                                           #
-#############################################################################
+        Date + datetime selectors with jquery UI Javascript widget and many other features.
 
+"""
 
+__copyright__ = "2008-2009 Rok Garbas, 2009- Twinapex Research"
+__authors__ = "Rok Garbas <rok.garbas@gmail.com>, Mikko Ohtamaa <mikko.ohtamaa@twinapex.fi"
+__license__ = "GPL"
+        
 from DateTime import DateTime
 from zope.component import adapts
 from zope.component import adapter
+import zope.interface
 from zope.interface import implementer
 from zope.interface import implementsOnly
 from zope.app.form.interfaces import ConversionError
@@ -40,10 +30,11 @@ from z3c.form.interfaces import IFieldWidget
 from z3c.form.interfaces import IFormLayer
 from z3c.form.converter import CalendarDataConverter
 from z3c.form.converter import FormatterValidationError
+from z3c.form import validator
 
 from collective.z3cform.datepicker.interfaces import IDatePickerWidget
 from collective.z3cform.datepicker.interfaces import IDateTimePickerWidget
-
+from collective.z3cform.datepicker.interfaces import IEmptyDateTimePickerWidget
 
 class DatePickerWidget(widget.HTMLTextInputWidget, Widget):
     """ Datepicker widget. """
@@ -167,6 +158,16 @@ class DatePickerWidget(widget.HTMLTextInputWidget, Widget):
                                 monthNamesShort=self.options['monthNamesShort'],
                                 monthNames=self.options['monthNames'])
 
+
+class PartialDate(object):
+    """ Marker object for dates that user did not fill in completely """
+    def __repr__(self):
+        return '<PARTIAL DATE>'
+
+# Partial date time fill in marker object
+# use is to compare
+PARTIAL_DATE = PartialDate()
+
 class DateTimePickerWidget(DatePickerWidget):
     """ DateTime picker widget """
     implementsOnly(IDateTimePickerWidget)
@@ -184,7 +185,31 @@ class DateTimePickerWidget(DatePickerWidget):
     events = DatePickerWidget.events.copy()
     events.update(dict(onSelect='updateLinked'))
     _options = dict(dateFormat='mm/dd/yy')
+
+    # All availble date compontents - don't touch
+    all_components = [ "years", "days", "months", "hours", "minutes" ]
+
+    # Which date components are asked/required
+    # override this in updateWidgets() for custom behavior
+    # Order is important - default to european order
+    components = [ "days", "months", "years", "hours", "minutes" ]
     
+    # This will be rendered between selection lists, after [key] component
+    component_separators = {
+            "days" : ".",
+            "months" : ".",
+            "hours" : ":",
+            "minutes" :  "",
+            "years" : ""
+        }
+
+    # This controls whether Javascript picker is enabled
+    # Note that you might also want disable extra files from portal_css and portal_javascripts, see profiles/default/*.xml
+    show_jquery_picker = True    
+
+    # This present selection input value which is means "user hasn't made a choice yet"
+    empty_value_marker = "-"
+
     @property
     def hours(self):
         hours = []
@@ -210,11 +235,11 @@ class DateTimePickerWidget(DatePickerWidget):
             jq(document).ready(function(){
                 // Prepare to show a date picker linked to three select controls 
                 function readLinked() { 
-                    jq("#%(id)s").val(jq("#%(id)s-month").val()+'/'+
-                                      jq("#%(id)s-day").val()+'/'+
-                                      jq("#%(id)s-year").val()+' '+
-                                      jq("#%(id)s-hour").val()+':'+
-                                      jq("#%(id)s-min").val());
+                    jq("#%(id)s").val(jq("#%(id)s-months").val()+'/'+
+                                      jq("#%(id)s-days").val()+'/'+
+                                      jq("#%(id)s-years").val()+' '+
+                                      jq("#%(id)s-hours").val()+':'+
+                                      jq("#%(id)s-minutes").val());
                     return {}; 
                 } 
                 // Update three select controls to match a date picker selection 
@@ -224,123 +249,282 @@ class DateTimePickerWidget(DatePickerWidget):
                         if (datetime.length==1) {
                             date = datetime[0].split('/');
                             if (date.length==3) {
-                                jq("#%(id)s-month").val(parseInt(date[0])); 
-                                jq("#%(id)s-day").val(parseInt(date[1])); 
-                                jq("#%(id)s-year").val(parseInt(date[2])); 
+                                jq("#%(id)s-months").val(parseInt(date[0])); 
+                                jq("#%(id)s-days").val(parseInt(date[1])); 
+                                jq("#%(id)s-years").val(parseInt(date[2])); 
                             }
                         }
                         if (datetime.length==2) {
                             date = datetime[0].split('/');
                             var time = datetime[1].split(':');
                             if (date.length==3&&time.length==2) {
-                                jq("#%(id)s-month").val(date[0]); 
-                                jq("#%(id)s-day").val(date[1]); 
-                                jq("#%(id)s-year").val(date[2]); 
-                                jq("#%(id)s-hour").val(time[0]); 
-                                jq("#%(id)s-min").val(time[1]); 
+                                jq("#%(id)s-months").val(date[0]); 
+                                jq("#%(id)s-days").val(date[1]); 
+                                jq("#%(id)s-years").val(date[2]); 
+                                jq("#%(id)s-hours").val(time[0]); 
+                                jq("#%(id)s-minutes").val(time[1]); 
                             } 
                         }
                     }
                     readLinked();
                 } 
                 updateLinked(jq("#%(id)s").val());
-                jq("#%(id)s-year").change(readLinked);
-                jq("#%(id)s-month").change(readLinked);
-                jq("#%(id)s-day").change(readLinked);
-                jq("#%(id)s-hour").change(readLinked);
-                jq("#%(id)s-min").change(readLinked);
+                jq("#%(id)s-years").change(readLinked);
+                jq("#%(id)s-months").change(readLinked);
+                jq("#%(id)s-days").change(readLinked);
+                jq("#%(id)s-hours").change(readLinked);
+                jq("#%(id)s-minutes").change(readLinked);
 
                 datepicker = jq("#%(id)s").datepicker({%(options)s});
                 // Prevent selection of invalid dates through the select controls 
-                jq("#%(id)s-month, #%(id)s-year").change(function () { 
-                    var daysInMonth = 32 - new Date(jq("#%(id)s-year").val(), 
-                        jq("#%(id)s-month").val() - 1, 32).getDate(); 
-                    jq("#%(id)s-day option").attr("disabled", ""); 
-                    jq("#%(id)s-day option:gt(" + (daysInMonth - 1) +")").attr("disabled", "disabled"); 
-                    if (jq("#%(id)s-day").val() > daysInMonth) { 
-                        jq("#%(id)s-day").val(daysInMonth); 
+                jq("#%(id)s-months, #%(id)s-years").change(function () { 
+                    var daysInMonth = 32 - new Date(jq("#%(id)s-years").val(), 
+                        jq("#%(id)s-months").val() - 1, 32).getDate(); 
+                    jq("#%(id)s-days option").attr("disabled", ""); 
+                    jq("#%(id)s-days option:gt(" + (daysInMonth - 1) +")").attr("disabled", "disabled"); 
+                    if (jq("#%(id)s-days").val() > daysInMonth) { 
+                        jq("#%(id)s-days").val(daysInMonth); 
                     } 
                 });
             });
             /* ]]> */''' % dict(id=self.id,options=self.compile_options())
                     
     def get_date_component(self, comp):
-        """ Get string of of one part of datetime.
+        """ Get datetime component for <input> or <select> value string presentation.
+
+        This will prefill in input fields when the form is rendered. Input source can be
+
+                * HTTP POST postback        
+
+                * Extract stored data (previously saved datetime object)
         
         See z3c.form.converter.CalendarDataConverter
         
         @param comp: strftime formatter symbol
         """      
+
+        formatter = {
+                "years" : "%Y",
+                "minutes" : "%m",
+                "days" : "%d",
+                "months" : "%M",
+                "hours" : "%H",
+        }
+
+        # Check if we have HTTP POST postback value to display
+        if self.get_component_input_name(comp) in self.request:
+            value = self.extract_component(comp, self.empty_value_marker)
+            if value != self.empty_value_marker:
+                return value            
+
+        # Get stored value if we are still empty
+        if self.value == u'':
+            return None        
     
         # match z3c.form.converter here
         locale = self.request.locale
         formatter = locale.dates.getFormatter("dateTime", "short")
        
-        if self.value == u'':
-            return None
-
         try:
             value = formatter.parse(self.value)
         except:
-            #import pdb ; pdb.set_trace()
             return None
         
         # TODO: What if the strftime return value has international letters?
-        return unicode(value.strftime(comp))
+
+        formatted = value.strftime(formatter[comp])
+
+        return unicode(formatted)
         
-    def is_month_checked(self, month):
-        """ <option> checket attribute evaluator """
+    def is_checked(self, component, value):
+        """ Selection list helper function.
         
-        value = self.get_date_component("%m")
-        # Strip leading zero
-        if value == None:
+        Called by template.
+        """
+        
+        current_comp_value = self.get_date_component(component)
+        
+        if current_comp_value == None:
             return False
-        value = int(str(value))
-        return unicode(month) == unicode(value)
 
-    def is_day_checked(self, day):
-        """ <option> checket attribute evaluator """        
-        return unicode(day) == self.get_date_component("%d")
+        # string to string match
+        if unicode(current_comp_value) == unicode(value):
+            return True        
+
+        # Hack, strip leading zero from numbers and compare numerical values
+        try:
+            value = int(str(value))
+            current_comp_value = int(str(current_comp_value))
+        except ValueError:
+            return False
+
+        if unicode(current_comp_value) == unicode(value):
+            return True        
+
+    def get_selection_lists(self):
+        """ Get values for all selection list to display in non-Javascript input fields.
+
+        Called once by template.
+
+        This allows override selections by contry specific values, like month names
+        by subclassing.
+
+        @return: Dict of component id -> selection list 
+        """
+
+        result = {}
+
+        assert len(self.components) > 0, "Bad components declaration for widget:" + str(self)
+
+        for c in self.components:
+            result[c] = getattr(self, c)
+
+        return result
+
+    def get_component_input_name(self, component):
+        """ How datetime component selection drop down name is encoded in the form.
         
-    def is_year_checked(self, year):
-        """ <option> checket attribute evaluator """
-        return unicode(year) == self.get_date_component("%Y")
+        self.name contains z3c.form decorations.
+        """
+        return self.name + "-" + component
 
-    def is_hour_checked(self, hour):
-        """ <option> checket attribute evaluator """        
-        return unicode(hour) == self.get_date_component("%H")
+    def extract_component(self, component, default=z3c.form.interfaces.NOVALUE):
+        """ Extract one component of date time from HTTP POST request.
 
-    def is_minute_checked(self, minute):
-        """ <option> checket attribute evaluator """        
-        # TODO what do to if minute drop down interval does not match the actual value
-        return unicode(minute) == self.get_date_component("%M")
+        @return: HTTP POST component value as string or default
+        """
+        component_value = self.request.get(self.get_component_input_name(component), default)      
+        return component_value
+
+    def fill_in_partial_date(self, values):
+        """ Put in missing datetime components to satisfy valid datetime requirements.
+
+        When we fill in incomplete dates, what substitute values we use for parts
+        we don't want to fill in, since datetime.datetime does not support
+        invalid dates (missing months, hours, etc.)
+
+        @param components: Dict of component -> value mappings
+        """
+        zero_component = {
+                "years" : 1900,
+                "months" : 1,
+                "days" : 1,
+                "hours" : 0,     
+                "minutes" : 0,
+        }
+
+        for c in self.all_components:
+            if not c in values:
+                values[c] = zero_component[c]
+
+    def get_all_components(self):
+        """ Get all available date components.
+
+        Called by template.
+
+        Preserve order with self.components. 
+        """
+        components = self.components[:]
+        for a in self.all_components:
+            if not a in components:
+                components.append(a)
+        return components
     
     def extract(self, default=z3c.form.interfaces.NOVALUE):
         """ Non-Javascript based value reader.
         
         Scan all selection lists and form datetime based on them.
+
+        @return: datetime formatted string, PARTIAL_DATE or empty string
         """
         
-        components = [ "year", "day", "month", "hour", "min" ]
         values = {}
+
+    
+        # How many date components are missing (filled in with dash)
+        missing_components = []
         
-        for c in components:
+        for c in self.components:
+
+            # Developer input sanity check
+            if not c in self.all_components:
+                raise AssertionError("Got bad components declaration:" + str(self.components))
+
             # Get individual selection list value
             
             # name is in format form.widgets.acuteInterventions_actilyseTreatmentDate
             
-            component_value = self.request.get(self.name + "-" + c, default)
+            component_value = self.extract_component(c, default)
+            print "Got value "+ str(component_value) + " for " + c
             if component_value == default:
                 # One component missing, 
                 # cannot built datetime
-                return default
-            
-            values[c] = component_value
-     
+                missing_components.append(c)
+            else:
+                values[c] = component_value
+
+        if len(missing_components) == len(self.components):
+             # This field was completely unfilled
+             # z3c.form machinary assumes that we return empty string in this case
+             return u""
+
+        if len(missing_components) > 0:
+            # Some fields missing
+            if len(missing_components) == len(self.components):
+                # All fields missing - field was not touched by the user
+                return u''
+            else:
+                # partially filled in
+                return PARTIAL_DATE
+
+        # Fill in day values which are missing
+        self.fill_in_partial_date(values)
+
         # convert to datepicker internal format
         # TODO: Check this is fixed and not tied to portal_properties
-        return "%s/%s/%s %s:%s" % (values["month"], values["day"], values["year"], values["hour"], values["min"])
+        formatted = "%s/%s/%s %s:%s" % (values["months"], values["days"], values["years"], values["hours"], values["minutes"])
+        print "Got:" + formatted + " " + str(self)
+        return formatted
 
+        
+class PartialDateError(zope.schema.ValidationError):
+    """ Please fill in the date completely """
+    
+    # TODO: Docstring above is displayed to the user unless this exception is caught and localized
+
+class EmptyDateTimePickerWidget(DateTimePickerWidget):
+    """ Datetime picker widget which allows you to skip the value selection. """
+
+    implementsOnly(IEmptyDateTimePickerWidget)
+   
+    klass = u'optionaldatetimepicker-widget'
+    value = u''
+
+    def wrap_selection_list_with_no_option(self, options):
+        """ Helper method to add an empty option to the selection list start.
+        """
+        return [ self.empty_value_marker ] + options
+
+        
+    def extract_component(self, component, default=z3c.form.interfaces.NOVALUE):
+        """ Extract one component of date time from request.
+        """
+        component_value = DateTimePickerWidget.extract_component(self, component)
+        if component_value == self.empty_value_marker:
+            return default
+
+        return component_value
+
+    def get_selection_lists(self):
+        """ Include no option in every selection list.
+
+        """
+
+        result = {}
+        for c in self.components:
+            result[c] = self.wrap_selection_list_with_no_option(getattr(self, c))
+
+        return result
 
 @adapter(IDatePickerWidget, IFormLayer)
 @implementer(IFieldWidget)
@@ -354,6 +538,12 @@ def DateTimePickerFieldWidget(field, request):
    """IFieldWidget factory for DateTimePickerFieldWidget."""
    return FieldWidget(field, DateTimePickerWidget(request))
 
+@adapter(IEmptyDateTimePickerWidget, IFormLayer)
+@implementer(IFieldWidget)
+def EmptyDateTimePickerFieldWidget(field, request):
+   """IFieldWidget factory for DateTimePickerFieldWidget."""
+   return FieldWidget(field, EmptyDateTimePickerWidget(request))
+
 
 class DateTimeConverter(CalendarDataConverter):
     """A special data converter for datetimes."""
@@ -363,12 +553,23 @@ class DateTimeConverter(CalendarDataConverter):
 
     def toFieldValue(self, value):
         """See interfaces.IDataConverter""" 
+
         if value == u'':
             return self.field.missing_value
+        elif value == PARTIAL_DATE:
+            # TODO: How to localize
+            raise PartialDateError()
+            
         try:
             return self.formatter.parse(value, pattern="M/d/yyyy H:m")
         except DateTimeParseError, err:
             raise FormatterValidationError(err.args[0], value)
+
+class EmptyDateTimeConverter(DateTimeConverter):
+
+    adapts(IDatetime, IEmptyDateTimePickerWidget)
+    type = 'dateTime'
+
 
 class DateConverter(CalendarDataConverter):
     """A special data converter for datetimes."""
@@ -377,7 +578,9 @@ class DateConverter(CalendarDataConverter):
     type = 'date'
 
     def toFieldValue(self, value):
-        """See interfaces.IDataConverter""" 
+        """See interfaces.IDataConverter"""
+
+       
         if value == u'':
             return self.field.missing_value
         try:

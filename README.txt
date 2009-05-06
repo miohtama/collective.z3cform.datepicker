@@ -1,22 +1,44 @@
-==========================================
-Datepicker (collective.z3cform.datepicker)
-==========================================
 
-jqueryui datepicker integration for z3cform's and plone. Enjoy ...
+jqueryui datepicker integration for z3cform's and plone.
 
-source: http://github.com/garbas/collective.z3cform.datepicker
+* Date picking
 
+* Date time picking
+
+* Date time picking without value (i.e. default = None). This applies for optional fields whose value the user might want to leave out.
+
+`Source code available at github <http://github.com/garbas/collective.z3cform.datepicker>`_.
+
+Code examples
+=============
+
+Few code examples are available in collective.z3cform.datepicker.tests module. 
+
+Available examples:
+
+1. How to change the default values (years span) etc.
+
+2. J
+
+Enable tests
+============
+
+1. Add line <include file="test.zcml" /> to collective/z3cform/datepicker/configure.zcml 
+
+2. Go to http://yoursite/@@datepicker_test
 
 TODO
-====
+----
 
- * auto languages (loading right language js file)
- * custom date(time) format
- * No posting value if the user doesn't make a selection (otherwise all
-   optional fields are populated with 1/1/1980)
- * Initial value for datewidget support (no datetimewidget.pt only does
+* auto languages (loading right language js file)
+
+* custom date(time) format
+
+* No posting value if the user doesn't make a selection (otherwise all
+  optional fields are populated with 1/1/1980)
+
+* Initial value for datewidget support (no datetimewidget.pt only does
    this)
-
 
    01:56 < davisagli_> garbas_: in general I like it and would like to use it
    for the date fields in dexterity, but there are a few ways in which 

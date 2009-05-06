@@ -1,6 +1,22 @@
 Changelog
 =========
 
+0.1rc7 - 05/2008
+----------------
+
+ * Reworked datetime selector (miohtama)
+ 
+ * Added support for no default value dates (miohtama)
+
+ * Added support for partial dates where some part of datetime can be left unfilled (miohtama)
+
+ * Respect HTTP postback and do not clear the widget on validation error
+
+ * Moved CSS & JS to Plone registries - speed ups page loading time greatly (miohtama)
+
+ * Added more tests and examples (miohtama)
+
+
 0.1rc7 - 03/11/2008
 -------------------
 

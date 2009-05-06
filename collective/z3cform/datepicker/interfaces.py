@@ -30,3 +30,14 @@ class IDateTimePickerWidget(ITextWidget):
     """A datepicker widget.
     """
 
+class IEmptyDateTimePickerWidget(ITextWidget):
+    """ Datetime picker widget which allows you to skip the value selection.
+
+    The initial value of this widget has no real date, but
+    each component is marked with a dash. If user wishes to 
+    enter a date, each component must be filled in. No component can be 
+    left partially filled.
+
+    If value is not selected the field will return z3cfield.NOVALUE
+    """
+    

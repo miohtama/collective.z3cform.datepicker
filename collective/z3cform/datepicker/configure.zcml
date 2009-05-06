@@ -2,10 +2,21 @@
     xmlns="http://namespaces.zope.org/zope"
     xmlns:z3c="http://namespaces.zope.org/z3c"
     xmlns:browser="http://namespaces.zope.org/browser"
+    xmlns:genericsetup="http://namespaces.zope.org/genericsetup"
     i18n_domain="collective.z3cform.datepicker">
+
+    <include file="test.zcml" />
 
     <include package="plone.z3cform" />
     <include package="collective.jqueryui" />
+
+    <genericsetup:registerProfile
+      name="default"
+      title="collective.z3cform.datepicker"
+      directory="profiles/default"
+      description='z3c.form datepicker widget support'
+      provides="Products.GenericSetup.interfaces.EXTENSION"
+      />
 
     <class class=".widget.DatePickerWidget">
         <require permission="zope.Public"
@@ -20,16 +31,25 @@
     <adapter factory=".widget.DateTimePickerFieldWidget" />
     <adapter factory=".widget.DateConverter" />
     <adapter factory=".widget.DateTimeConverter" />
+    <adapter factory=".widget.EmptyDateTimeConverter" />
 
     <z3c:widgetTemplate
         mode="input"
  		widget=".interfaces.IDatePickerWidget"        
  		layer="z3c.form.interfaces.IFormLayer"
  		template="datepicker_input.pt" />
+ 		
     <z3c:widgetTemplate
         mode="input"
  		widget=".interfaces.IDateTimePickerWidget"        
  		layer="z3c.form.interfaces.IFormLayer"
  		template="datetimepicker_input.pt" />
+
+    <z3c:widgetTemplate
+        mode="input"
+ 		widget=".interfaces.IEmptyDateTimePickerWidget"        
+ 		layer="z3c.form.interfaces.IFormLayer"
+ 		template="datetimepicker_input.pt" />
+
 
 </configure>

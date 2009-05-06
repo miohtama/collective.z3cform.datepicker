@@ -1,54 +1,48 @@
-<link media="screen" type="text/css" href="++resource++jquery.ui/themes/base/ui.core.css" rel="stylesheet">
-<link media="screen" type="text/css" href="++resource++jquery.ui/themes/base/ui.theme.css" rel="stylesheet">
-<link media="screen" type="text/css" href="++resource++jquery.ui/themes/base/ui.datepicker.css" rel="stylesheet">
-<script type="text/javascript" src="++resource++jquery.ui/ui/packed/ui.datepicker.packed.js"></script>
-<select id="" name=""
-        tal:attributes="id string:${view/id}-month;
-                        name string:${view/name}-month">
-    <option value=""
-            tal:repeat="item view/months"
-            tal:attributes="value item;
-                            selected python:view.is_month_checked(item)"
-            tal:content="item" />
-</select> /
-<select id="" name=""
-        tal:attributes="id string:${view/id}-day;
-                        name string:${view/name}-day">
-    <option value=""
-            tal:repeat="item view/days"
-            tal:attributes="value item;
-                            selected python:view.is_day_checked(item)"
-            tal:content="item" />
-</select> /
-<select id="" name=""
-        tal:attributes="id string:${view/id}-year;
-                        name string:${view/name}-year">
-    <option value=""
-            tal:repeat="item view/years"
-            tal:attributes="value item;
-                            selected python:view.is_year_checked(item)"
-            tal:content="item" />
-</select>
-<input type="hidden" id="" name=""
+<tal:comment replace="nothing">
+        Javascript helper field
+</tal:comment>
+
+<input type="hidden" id="" name="" tal:condition="view/show_jquery_picker"
        tal:attributes="id view/id;
                        name view/name;
                        value view/value;" />
-<select id="" name=""
-        tal:attributes="id string:${view/id}-hour;
-                        name string:${view/name}-hour">
-    <option value=""
-            tal:repeat="item view/hours"
-            tal:attributes="value item;
-                            selected python:view.is_hour_checked(item)"
-            tal:content="item" />
-</select> :
-<select id="" name=""
-        tal:attributes="id string:${view/id}-min;
-                        name string:${view/name}-min">
-    <option value=""
-            tal:repeat="item view/minutes"
-            tal:attributes="value item;
-                            selected python:view.is_minute_checked(item)"
-            tal:content="item" />
-</select>
-<script type="text/javascript" tal:content="structure view/datepicker_javascript"></script>
+
+<tal:comment replace="nothing">
+        Resolve template selection lists in this point
+</tal:comment>
+
+<tal:selection-lists define="selection_lists view/get_selection_lists">
+
+        <tal:component repeat="component view/get_all_components">
+
+                <tal:comment replace="nothing">
+                        Check that if the developer wanted to ask for this particular datetime component
+                </tal:comment>
+
+                <tal:has-component tal:condition="python:component in selection_lists">
+                        <select id="" name=""
+                                tal:define="selection_list python:selection_lists.get(component, [])"
+                                tal:attributes="id string:${view/id}-$component;
+                                                name string:${view/name}-$component">
+                            <option value=""
+                                    tal:repeat="item python:selection_list"
+                                    tal:attributes="value item;
+                                                    selected python:view.is_checked(component, item)"
+                                    tal:content="item" />
+                        </select> 
+
+                        <span class="date-separator" tal:content="python:view.component_separators.get(component, '')" />
+                </tal:has-component>
+
+
+                <tal:comment replace="nothing">
+                        We need to render hidden inputs for missing day components so that we don't screw up Javascript
+                </tal:comment>
+
+                <tal:no-days tal:condition="python:not component in selection_lists">
+                    <input type="hidden" tal:attributes="id string:${view/id}-$component; name string:${view/name}-$component">
+                </tal:no-days>
+        </tal:component>
+</tal:selection-lists>
+
+<script type="text/javascript" tal:content="structure view/datepicker_javascript" tal:condition="view/show_jquery_picker"></script>
