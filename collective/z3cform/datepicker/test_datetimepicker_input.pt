@@ -9,7 +9,7 @@
 
 <tal:selection-lists define="selection_lists view/get_selection_lists">
 
-        <tal:component repeat="component view/all_components">
+        <tal:component repeat="component view/get_all_components">
 
                 <tal:has-component tal:condition="python:component in selection_lists">
                         <input id="" name=""

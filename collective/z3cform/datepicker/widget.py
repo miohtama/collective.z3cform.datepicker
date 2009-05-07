@@ -6,8 +6,10 @@
 """
 
 __copyright__ = "2008-2009 Rok Garbas, 2009- Twinapex Research"
-__authors__ = "Rok Garbas <rok.garbas@gmail.com>, Mikko Ohtamaa <mikko.ohtamaa@twinapex.fi"
+__authors__ = "Rok Garbas <rok.garbas@gmail.com>, Mikko Ohtamaa <mikko.ohtamaa@twinapex.fi>"
 __license__ = "GPL"
+
+import types
         
 from DateTime import DateTime
 from zope.component import adapts
@@ -19,6 +21,7 @@ from zope.app.form.interfaces import ConversionError
 from zope.app.i18n import ZopeMessageFactory as _
 from zope.schema.interfaces import IDate
 from zope.schema.interfaces import IDatetime
+from zope.schema.vocabulary import SimpleTerm, SimpleVocabulary
 from zope.i18n.format import DateTimeParseError
 from zope.i18n.interfaces import IUserPreferredLanguages
 
@@ -169,7 +172,14 @@ class PartialDate(object):
 PARTIAL_DATE = PartialDate()
 
 class DateTimePickerWidget(DatePickerWidget):
-    """ DateTime picker widget """
+    """ DateTime picker widget. 
+
+    Uses widget instance based attributes for configuration. Default values are class attributes. 
+
+    components attribute will tell what parts and in which order date components are presented.
+
+    years, months, days, hours and minutes are selection lists. They will be wrapped to zope.schema.vocabulary.SimpleVocabulary if provided as plain Python lists.
+    """
     implementsOnly(IDateTimePickerWidget)
    
     klass = u'datetimepicker-widget'
@@ -321,7 +331,7 @@ class DateTimePickerWidget(DatePickerWidget):
         if self.value == u'':
             return None        
     
-        # match z3c.form.converter here
+        # match z3c.form.converter behavior here
         locale = self.request.locale
         formatter = locale.dates.getFormatter("dateTime", "short")
        
@@ -369,7 +379,7 @@ class DateTimePickerWidget(DatePickerWidget):
         This allows override selections by contry specific values, like month names
         by subclassing.
 
-        @return: Dict of component id -> selection list 
+        @return: Dict of component id -> SimpleVocabulary instance mappings
         """
 
         result = {}
@@ -377,7 +387,15 @@ class DateTimePickerWidget(DatePickerWidget):
         assert len(self.components) > 0, "Bad components declaration for widget:" + str(self)
 
         for c in self.components:
-            result[c] = getattr(self, c)
+            list = getattr(self, c)
+
+            # Turn lists to vocabulary
+            if not isinstance(list, SimpleVocabulary):
+               assert type(list) == types.ListType
+               terms = [ SimpleTerm(val, title=val) for val in list ]
+               result[c] = SimpleVocabulary(terms)
+            else:
+               result[c] = list
 
         return result
 
@@ -394,6 +412,9 @@ class DateTimePickerWidget(DatePickerWidget):
         @return: HTTP POST component value as string or default
         """
         component_value = self.request.get(self.get_component_input_name(component), default)      
+        if component_value == u"":
+            # Empty <input type="text"> field
+            return default
         return component_value
 
     def fill_in_partial_date(self, values):
@@ -439,7 +460,6 @@ class DateTimePickerWidget(DatePickerWidget):
         """
         
         values = {}
-
     
         # How many date components are missing (filled in with dash)
         missing_components = []
@@ -450,15 +470,11 @@ class DateTimePickerWidget(DatePickerWidget):
             if not c in self.all_components:
                 raise AssertionError("Got bad components declaration:" + str(self.components))
 
-            # Get individual selection list value
-            
-            # name is in format form.widgets.acuteInterventions_actilyseTreatmentDate
+            # Get individual selection list value          
             
             component_value = self.extract_component(c, default)
-            print "Got value "+ str(component_value) + " for " + c
+            #print "Got value "+ str(component_value) + " for " + c
             if component_value == default:
-                # One component missing, 
-                # cannot built datetime
                 missing_components.append(c)
             else:
                 values[c] = component_value
@@ -483,7 +499,7 @@ class DateTimePickerWidget(DatePickerWidget):
         # convert to datepicker internal format
         # TODO: Check this is fixed and not tied to portal_properties
         formatted = "%s/%s/%s %s:%s" % (values["months"], values["days"], values["years"], values["hours"], values["minutes"])
-        print "Got:" + formatted + " " + str(self)
+        #print "Got:" + formatted + " " + str(self)
         return formatted
 
         
@@ -493,7 +509,10 @@ class PartialDateError(zope.schema.ValidationError):
     # TODO: Docstring above is displayed to the user unless this exception is caught and localized
 
 class EmptyDateTimePickerWidget(DateTimePickerWidget):
-    """ Datetime picker widget which allows you to skip the value selection. """
+    """ Datetime picker widget which allows you to skip the value selection. 
+
+    Incomplete values are marked with dash (-) in selection drop down.
+    """
 
     implementsOnly(IEmptyDateTimePickerWidget)
    
@@ -502,9 +521,16 @@ class EmptyDateTimePickerWidget(DateTimePickerWidget):
 
     def wrap_selection_list_with_no_option(self, options):
         """ Helper method to add an empty option to the selection list start.
-        """
-        return [ self.empty_value_marker ] + options
 
+        @param options: SimpleVocabulary instance
+        """
+        assert isinstance(options, SimpleVocabulary), "Got in bad options:" + str(options) + " " + str(self)
+        empty_term = SimpleTerm(value=self.empty_value_marker, title=self.empty_value_marker)
+        terms = [ empty_term ]
+        for term in options:
+            terms.append(term)
+
+        return SimpleVocabulary(terms)
         
     def extract_component(self, component, default=z3c.form.interfaces.NOVALUE):
         """ Extract one component of date time from request.
@@ -516,15 +542,13 @@ class EmptyDateTimePickerWidget(DateTimePickerWidget):
         return component_value
 
     def get_selection_lists(self):
-        """ Include no option in every selection list.
+        """ Include "no" option in every selection list.
 
         """
-
-        result = {}
-        for c in self.components:
-            result[c] = self.wrap_selection_list_with_no_option(getattr(self, c))
-
-        return result
+        lists = DateTimePickerWidget.get_selection_lists(self)
+        for key, value in lists.items():
+            lists[key] = self.wrap_selection_list_with_no_option(value) 
+        return lists
 
 @adapter(IDatePickerWidget, IFormLayer)
 @implementer(IFieldWidget)
@@ -541,7 +565,7 @@ def DateTimePickerFieldWidget(field, request):
 @adapter(IEmptyDateTimePickerWidget, IFormLayer)
 @implementer(IFieldWidget)
 def EmptyDateTimePickerFieldWidget(field, request):
-   """IFieldWidget factory for DateTimePickerFieldWidget."""
+   """IFieldWidget factory for EmptyDateTimePickerFieldWidget."""
    return FieldWidget(field, EmptyDateTimePickerWidget(request))
 
 
@@ -557,6 +581,7 @@ class DateTimeConverter(CalendarDataConverter):
         if value == u'':
             return self.field.missing_value
         elif value == PARTIAL_DATE:
+            # The user had filled in the date only partially
             # TODO: How to localize
             raise PartialDateError()
             

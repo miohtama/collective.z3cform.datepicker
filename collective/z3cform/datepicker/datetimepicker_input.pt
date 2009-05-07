@@ -26,9 +26,9 @@
                                                 name string:${view/name}-$component">
                             <option value=""
                                     tal:repeat="item python:selection_list"
-                                    tal:attributes="value item;
-                                                    selected python:view.is_checked(component, item)"
-                                    tal:content="item" />
+                                    tal:attributes="value item/value;
+                                                    selected python:view.is_checked(component, item.value)"
+                                    tal:content="item/title" />
                         </select> 
 
                         <span class="date-separator" tal:content="python:view.component_separators.get(component, '')" />

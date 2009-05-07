@@ -88,22 +88,8 @@ class CustomDateTimeWidget(DateTimePickerWidget):
         """
         return [ "13", "26", "55" ]
 
-
-def CustomDateTimePickerFieldWidgetFactory(field, request):
-   """ All widgets are created by WidgetFactory.
-
-   This creates widget instance and wraps it to FieldWidget.
-
-   TODO: I am not quite sure what those magic decorators do...
-   """
-   return FieldWidget(field, CustomDateTimeWidget(request))
-    
-class CustomDateTimeWidgetWithTemplate(DateTimePickerWidget):
-    """ Widget whose template has been overridden """
-  
-    template = ViewPageTemplateFile("test_datetimepicker_input.pt")
-
-    def get_months_dropdown(self):
+    @property
+    def months(self):
         """ Override selection list drop down to return month names instead of numerical values. 
         
         We have also fixed template accordingly, see 
@@ -119,14 +105,35 @@ class CustomDateTimeWidgetWithTemplate(DateTimePickerWidget):
 
         month_names = locale.dates.calendars[u"gregorian"].months   
         # Construct zope.schema.Vocabulary run-time for the selected language
-        for i in range(1, 12):
+        for i in range(1, 12+1): # range is exclusive
             long_name, short_name = month_names[i]
-            term = SimpleTerm(i, title=short_name)
+            term = SimpleTerm(i, title=long_name)
             terms.append(term)
 
         vocab = SimpleVocabulary(terms)
 
         return vocab
+
+
+def CustomDateTimePickerFieldWidgetFactory(field, request):
+   """ All widgets are created by WidgetFactory.
+
+   This creates widget instance and wraps it to FieldWidget.
+
+   TODO: I am not quite sure what those magic decorators do...
+   """
+   return FieldWidget(field, CustomDateTimeWidget(request))
+    
+class CustomDateTimeWidgetWithTemplate(DateTimePickerWidget):
+    """ Widget whose template has been overridden. 
+
+    Template uses <input type="text"> instead of <select>
+    """
+  
+    template = ViewPageTemplateFile("test_datetimepicker_input.pt")
+
+    components = [ "months", "days", "years", "hours", "minutes" ]
+    component_separators={"months":"/", "days" : "/", "hours" : ":" }
 
 def CustomDateTimeWidgetWithTemplateFieldWidgetFactory(field, request):
    """ Maybe we are stretching function name here a bit """
