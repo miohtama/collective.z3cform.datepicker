@@ -41,7 +41,7 @@ class ITestForm(Interface):
     Note distinction between Date and Datetime objects.
     """
     date = Date(
-        title       = u'Date widget',
+        title       = u'Date widget w/default value',
         required    = False,)
 
     datetime = Datetime(
@@ -51,6 +51,11 @@ class ITestForm(Interface):
     datetime2 = Datetime(
         title       = u'DateTime widget with special year range',
         required    = True,)
+
+    datetime3 = Datetime(
+        title       = u'DateTime with value coming from stored data',
+        required    = True,)
+
 
     optional_datetime = Datetime(
         title       = u'Optional date time field',
@@ -92,7 +97,6 @@ class CustomDateTimeWidget(DateTimePickerWidget):
     def months(self):
         """ Override selection list drop down to return month names instead of numerical values. 
         
-        We have also fixed template accordingly, see 
         """
         
         terms = []
@@ -145,11 +149,14 @@ class TestForm(Form):
     Show how to bind fields to widget factories.
     """
 
-    ignoreContext = True
+    # Read initial values from getContent()
+    ignoreContext = False
+    
     fields = Fields(ITestForm)
     fields['date'].widgetFactory[INPUT_MODE] = DatePickerFieldWidget
     fields['datetime'].widgetFactory[INPUT_MODE] = DateTimePickerFieldWidget
     fields['datetime2'].widgetFactory[INPUT_MODE] = DateTimePickerFieldWidget
+    fields['datetime3'].widgetFactory[INPUT_MODE] = EmptyDateTimePickerFieldWidget
     fields['optional_datetime'].widgetFactory[INPUT_MODE] = EmptyDateTimePickerFieldWidget
     fields['required_datetime'].widgetFactory[INPUT_MODE] = EmptyDateTimePickerFieldWidget
     fields['year_month'].widgetFactory[INPUT_MODE] = EmptyDateTimePickerFieldWidget
@@ -160,6 +167,11 @@ class TestForm(Form):
     fields['custom_datetime2'].widgetFactory[INPUT_MODE] = CustomDateTimeWidgetWithTemplateFieldWidgetFactory
 
 
+    def getContent(self):
+        """ Get form field values from the data storage to prepopulate the form. """
+        return { "datetime3" :datetime.datetime.now() } 
+        
+
     def updateWidgets(self):
         """ Customize form widgets for the example.
 
@@ -167,6 +179,8 @@ class TestForm(Form):
 
         Note that DateWidget (no time) might not support any advanced options.
         """
+        print self.getContent()
+        
         Form.updateWidgets(self)
 
         #

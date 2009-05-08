@@ -22,13 +22,21 @@
         <require permission="zope.Public"
                  interface=".interfaces.IDatePickerWidget" />
     </class>
+	
     <class class=".widget.DateTimePickerWidget">
         <require permission="zope.Public"
                  interface=".interfaces.IDateTimePickerWidget" />
     </class>
 
+    <class class=".widget.EmptyDateTimePickerWidget">
+        <require permission="zope.Public"
+                 interface=".interfaces.IEmptyDateTimePickerWidget" />
+    </class>
+
+
     <adapter factory=".widget.DatePickerFieldWidget" />
     <adapter factory=".widget.DateTimePickerFieldWidget" />
+	<adapter factory=".widget.EmptyDateTimePickerFieldWidget" />
     <adapter factory=".widget.DateConverter" />
     <adapter factory=".widget.DateTimeConverter" />
     <adapter factory=".widget.EmptyDateTimeConverter" />

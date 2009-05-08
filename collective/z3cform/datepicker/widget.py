@@ -233,7 +233,7 @@ class DateTimePickerWidget(DatePickerWidget):
     @property
     def minutes(self):
         minutes = []
-        for i in range(0, 60, 5):
+        for i in range(0, 60, 1):
             if i<10:
                 minutes.append('0'+str(i))
             else:
@@ -313,19 +313,19 @@ class DateTimePickerWidget(DatePickerWidget):
         @param comp: strftime formatter symbol
         """      
 
-        formatter = {
+        formatters = {
                 "years" : "%Y",
-                "minutes" : "%m",
-                "days" : "%d",
-                "months" : "%M",
+                "months" : "%m",
+                "days" : "%d",                
                 "hours" : "%H",
+                "minutes" : "%M",
         }
 
         # Check if we have HTTP POST postback value to display
         if self.get_component_input_name(comp) in self.request:
             value = self.extract_component(comp, self.empty_value_marker)
             if value != self.empty_value_marker:
-                return value            
+                return value
 
         # Get stored value if we are still empty
         if self.value == u'':
@@ -334,15 +334,14 @@ class DateTimePickerWidget(DatePickerWidget):
         # match z3c.form.converter behavior here
         locale = self.request.locale
         formatter = locale.dates.getFormatter("dateTime", "short")
-       
+               
         try:
             value = formatter.parse(self.value)
         except:
             return None
         
         # TODO: What if the strftime return value has international letters?
-
-        formatted = value.strftime(formatter[comp])
+        formatted = value.strftime(formatters[comp])
 
         return unicode(formatted)
         
@@ -362,6 +361,10 @@ class DateTimePickerWidget(DatePickerWidget):
             return True        
 
         # Hack, strip leading zero from numbers and compare numerical values
+        #print "comp:" +str(component)
+        #print "value:" + str(value)
+        #print "current:" + str(current_comp_value)
+        
         try:
             value = int(str(value))
             current_comp_value = int(str(current_comp_value))
@@ -406,16 +409,6 @@ class DateTimePickerWidget(DatePickerWidget):
         """
         return self.name + "-" + component
 
-    def extract_component(self, component, default=z3c.form.interfaces.NOVALUE):
-        """ Extract one component of date time from HTTP POST request.
-
-        @return: HTTP POST component value as string or default
-        """
-        component_value = self.request.get(self.get_component_input_name(component), default)      
-        if component_value == u"":
-            # Empty <input type="text"> field
-            return default
-        return component_value
 
     def fill_in_partial_date(self, values):
         """ Put in missing datetime components to satisfy valid datetime requirements.
@@ -450,13 +443,27 @@ class DateTimePickerWidget(DatePickerWidget):
             if not a in components:
                 components.append(a)
         return components
+
+    def extract_component(self, component, default=z3c.form.interfaces.NOVALUE):
+        """ Extract one component of date time from HTTP POST request.
+
+        @return: HTTP POST component value as string or default
+        """
+        component_value = self.request.get(self.get_component_input_name(component), default)      
+        if component_value == u"":
+            # Empty <input type="text"> field
+            return default
+        return component_value
+
     
     def extract(self, default=z3c.form.interfaces.NOVALUE):
         """ Non-Javascript based value reader.
         
         Scan all selection lists and form datetime based on them.
 
-        @return: datetime formatted string, PARTIAL_DATE or empty string
+        @return: datetime formatted string if the input is succesfully filled
+        @return: PARTIAL_DATE instance if the request was partially filled
+        @return: NOVALUE instance if the request does not contain data for this widget (was HTTP GET -> fill in from the data storage)        
         """
         
         values = {}
@@ -479,16 +486,12 @@ class DateTimePickerWidget(DatePickerWidget):
             else:
                 values[c] = component_value
 
-        if len(missing_components) == len(self.components):
-             # This field was completely unfilled
-             # z3c.form machinary assumes that we return empty string in this case
-             return u""
-
         if len(missing_components) > 0:
             # Some fields missing
             if len(missing_components) == len(self.components):
-                # All fields missing - field was not touched by the user
-                return u''
+                # This field was completely unfilled
+                # z3c.form machinary assumes that we return empty string in this case
+                return z3c.form.interfaces.NOVALUE
             else:
                 # partially filled in
                 return PARTIAL_DATE
@@ -518,6 +521,11 @@ class EmptyDateTimePickerWidget(DateTimePickerWidget):
    
     klass = u'optionaldatetimepicker-widget'
     value = u''
+    
+    
+    def __init__(self, *args, **kwargs):
+        DateTimePickerWidget.__init__(self, *args, **kwargs)
+        #print str(args) + str(kwargs)
 
     def wrap_selection_list_with_no_option(self, options):
         """ Helper method to add an empty option to the selection list start.
@@ -574,6 +582,16 @@ class DateTimeConverter(CalendarDataConverter):
 
     adapts(IDatetime, IDateTimePickerWidget)
     type = 'dateTime'
+    
+    def toWidgetValue(self, value):
+        """See interfaces.IDataConverter"""
+        
+        #print "Converting to widget value:" + str(value)
+        
+        if value is self.field.missing_value:
+            return u''        
+        
+        return self.formatter.format(value)    
 
     def toFieldValue(self, value):
         """See interfaces.IDataConverter""" 
